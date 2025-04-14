@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jonapie Go!</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #cceeff;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+      background: #88ccff;
+    }
+    #overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      color: white;
+      text-shadow: 2px 2px 4px black;
+    }
+    #instruction {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 28px;
+      color: white;
+      background: rgba(0,0,0,0.6);
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <audio id="bgMusic" src="https://cdn.pixabay.com/audio/2022/03/15/audio_b46b9b93f8.mp3" autoplay loop></audio>
+  <audio id="dingSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_f0e9c70cfa.mp3"></audio>
+  <audio id="birthdaySong" src="https://cdn.pixabay.com/audio/2023/03/28/audio_f0fc41a7f1.mp3"></audio>
+  <canvas id="gameCanvas"></canvas>
+  <div id="overlay">XP: <span id="xp">0</span></div>
+  <div id="instruction">Click the left mouse button to move forward.</div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const bgMusic = document.getElementById("bgMusic");
+    const dingSound = document.getElementById("dingSound");
+    const birthdaySong = document.getElementById("birthdaySong");
+    const instruction = document.getElementById("instruction");
+
+    let jonapie = {
+      x: 100,
+      y: canvas.height - 150,
+      width: 50,
+      height: 50,
+      color: "#3366cc",
+      vx: 0,
+      jumping: false,
+      vy: 0,
+    };
+
+    let gravity = 0.5;
+    let xp = 0;
+    let cakeReached = false;
+    let stopAtEnd = false;
+    let showChenyiBubble = false;
+    let showJonathanReply = false;
+    let messageShown = false;
+    let fallingMessages = [];
+
+    let items = [];
+    for (let i = 1; i <= 5; i++) {
+      items.push({ x: i * 300 + 400, y: canvas.height - 150, collected: false });
+    }
+
+    let cake = { x: 1900, y: canvas.height - 170, width: 50, height: 50 };
+    let girl = { x: cake.x + 70, y: canvas.height - 150, width: 50, height: 50 };
+
+    function drawLabel(text, x, y) {
+      ctx.fillStyle = "black";
+      ctx.font = "16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(text, x, y);
+    }
+
+    function drawSpeechBubble(x, y, text, width = 420) {
+      ctx.fillStyle = "white";
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, 90, 10);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "black";
+      ctx.font = "16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(text, x + width / 2, y + 50);
+    }
+
+    function drawJonapie() {
+      ctx.fillStyle = jonapie.color;
+      ctx.fillRect(jonapie.x, jonapie.y, jonapie.width, jonapie.height);
+      ctx.fillStyle = "blue";
+      ctx.fillRect(jonapie.x + 10, jonapie.y + 10, 8, 8);
+      ctx.fillRect(jonapie.x + 32, jonapie.y + 10, 8, 8);
+      drawLabel("Jonapie", jonapie.x + 25, jonapie.y - 10);
+    }
+
+    function drawItems() {
+      items.forEach(item => {
+        if (!item.collected) {
+          ctx.beginPath();
+          ctx.arc(item.x, item.y, 10, 0, Math.PI * 2);
+          ctx.fillStyle = "gold";
+          ctx.fill();
+        }
+      });
+    }
+
+    function drawCakeAndGirl() {
+      ctx.font = "48px serif";
+      ctx.fillText("🎂", cake.x, cake.y);
+
+      ctx.fillStyle = "#ff66cc";
+      ctx.fillRect(girl.x, girl.y, girl.width, girl.height);
+      ctx.fillStyle = "black";
+      ctx.fillRect(girl.x + 10, girl.y + 10, 8, 8);
+      ctx.fillRect(girl.x + 30, girl.y + 10, 8, 8);
+      drawLabel("Chenyi", girl.x + 25, girl.y - 10);
+
+      if (showChenyiBubble) {
+        drawSpeechBubble(girl.x - 80, girl.y - 100, "Happy Birthday, may all your dreams and wishes come true this year!");
+      }
+      if (showJonathanReply) {
+        drawSpeechBubble(jonapie.x - 100, jonapie.y - 180, "To the most beautiful woman in the world——Thank You Chenyi ❤️");
+      }
+    }
+
+    function drawSigns() {
+      for (let i = 600; i < cake.x; i += 800) {
+        ctx.fillStyle = "#884400";
+        ctx.fillRect(i, canvas.height - 180, 40, 40);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 20px Arial";
+        ctx.fillText("→", i + 20, canvas.height - 150);
+      }
+    }
+
+    function drawFireworks() {
+      for (let i = 0; i < 100; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height / 2, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 60%)`;
+        ctx.fill();
+      }
+    }
+
+    function drawText() {
+      ctx.fillStyle = "white";
+      ctx.font = "bold 48px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("HAPPY BIRTHDAY JONATAHAN!", canvas.width / 2, 100);
+      ctx.fillText("You are the best", canvas.width / 2, 160);
+    }
+
+    function drawFallingMessages() {
+      ctx.font = "20px Arial";
+      fallingMessages.forEach(msg => {
+        ctx.fillStyle = `rgba(255, 255, 255, 0.5)`;
+        ctx.fillText("💓 Happy Birthday Jonathan 💓", msg.x, msg.y);
+        msg.y += msg.speed;
+        if (msg.y > canvas.height) msg.y = 0;
+      });
+    }
+
+    function update() {
+      if (!stopAtEnd) {
+        jonapie.x += jonapie.vx;
+      }
+
+      if (jonapie.jumping) {
+        jonapie.vy += gravity;
+        jonapie.y += jonapie.vy;
+        if (jonapie.y >= canvas.height - 150) {
+          jonapie.y = canvas.height - 150;
+          jonapie.jumping = false;
+          jonapie.vy = 0;
+        }
+      }
+
+      items.forEach(item => {
+        if (!item.collected && Math.abs(jonapie.x - item.x) < 30) {
+          item.collected = true;
+          xp++;
+          document.getElementById("xp").textContent = xp;
+          dingSound.currentTime = 0;
+          dingSound.play();
+        }
+      });
+
+      if (!cakeReached && jonapie.x + jonapie.width > cake.x) {
+        cakeReached = true;
+        stopAtEnd = true;
+        bgMusic.pause();
+        birthdaySong.play();
+        instruction.textContent = "Click the right mouse button to interact!";
+        instruction.style.display = "block";
+
+        for (let i = 0; i < 100; i++) {
+          fallingMessages.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            speed: 0.3 + Math.random() * 0.3
+          });
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(-jonapie.x + 100, 0);
+      drawItems();
+      drawCakeAndGirl();
+      drawSigns();
+      drawJonapie();
+      ctx.restore();
+      if (cakeReached) {
+        drawFireworks();
+        drawText();
+        drawFallingMessages();
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener("mousedown", e => {
+      if (!cakeReached && e.button === 0) jonapie.vx = 2;
+    });
+
+    window.addEventListener("mouseup", e => {
+      if (e.button === 0) jonapie.vx = 0;
+    });
+
+    window.addEventListener("keydown", e => {
+      if (e.code === "Space" && !jonapie.jumping) {
+        jonapie.jumping = true;
+        jonapie.vy = -10;
+      }
+    });
+
+    window.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      if (cakeReached) {
+        if (!showChenyiBubble) {
+          showChenyiBubble = true;
+        } else if (!showJonathanReply) {
+          showJonathanReply = true;
+          instruction.style.display = "none";
+        }
+      }
+    });
+
+    window.onload = () => {
+      instruction.style.display = "block";
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
